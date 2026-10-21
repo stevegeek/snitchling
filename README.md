@@ -108,3 +108,8 @@ cargo run --release --example live_check            # add --toggle-interception 
 [evilsocket/opensnitch](https://github.com/evilsocket/opensnitch) v1.7.2
 (GPL-3.0). `vendor/h2` is the [h2](https://github.com/hyperium/h2) crate (MIT)
 with the one change described above.
+
+## License
+
+GPL-3.0-or-later (see `LICENSE`), matching OpenSnitch, whose protocol
+definition is included.
