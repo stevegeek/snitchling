@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=snitchling
+GenericName=Application Firewall
+Comment=Lightweight UI for the OpenSnitch application firewall
+Exec=snitchling
+Icon=snitchling
+StartupWMClass=snitchling
+Terminal=false
+Categories=System;Security;
+X-GNOME-Autostart-enabled=true

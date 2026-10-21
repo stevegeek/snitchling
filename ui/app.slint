@@ -1,0 +1,297 @@
+import { Button, ComboBox, CheckBox, LineEdit, ListView, Switch, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export struct RuleRow {
+    name: string,
+    action: string,
+    duration: string,
+    condition: string,
+    enabled: bool,
+}
+
+component Label inherits Text {
+    vertical-alignment: center;
+    opacity: 0.7;
+}
+
+component Value inherits Text {
+    vertical-alignment: center;
+    overflow: elide;
+    horizontal-stretch: 1;
+}
+
+export component PromptWindow inherits Window {
+    title: "snitchling";
+    min-width: 560px;
+    preferred-width: 640px;
+
+    in property <string> app-name;
+    in property <string> summary;
+    in property <string> exe;
+    in property <string> cmdline;
+    in property <string> details;
+    in property <[string]> targets;
+    in-out property <int> target-index;
+    in property <[string]> durations;
+    in-out property <int> duration-index;
+    in-out property <bool> also-exe;
+    in-out property <bool> also-port;
+    in-out property <bool> also-user;
+    in property <string> countdown;
+    callback decide(string);
+
+    VerticalBox {
+        Text {
+            text: root.app-name;
+            font-size: 18px;
+            font-weight: 700;
+            overflow: elide;
+        }
+        Text {
+            text: root.summary;
+            wrap: word-wrap;
+        }
+        GridLayout {
+            spacing: 6px;
+            Row {
+                Label { text: "Executable"; }
+                Value { text: root.exe; }
+            }
+            Row {
+                Label { text: "Command"; }
+                Value { text: root.cmdline; }
+            }
+            Row {
+                Label { text: "Process"; }
+                Value { text: root.details; }
+            }
+        }
+        HorizontalBox {
+            padding: 0;
+            Label { text: "Rule for"; }
+            ComboBox {
+                model: root.targets;
+                current-index <=> root.target-index;
+                horizontal-stretch: 1;
+            }
+        }
+        HorizontalBox {
+            padding: 0;
+            Label { text: "Also require"; }
+            CheckBox {
+                text: "this executable";
+                checked <=> root.also-exe;
+            }
+            CheckBox {
+                text: "this port";
+                checked <=> root.also-port;
+            }
+            CheckBox {
+                text: "this user";
+                checked <=> root.also-user;
+            }
+        }
+        HorizontalBox {
+            padding: 0;
+            Label { text: "Duration"; }
+            ComboBox {
+                model: root.durations;
+                current-index <=> root.duration-index;
+                horizontal-stretch: 1;
+            }
+        }
+        HorizontalBox {
+            padding: 0;
+            Label {
+                text: root.countdown;
+                horizontal-stretch: 1;
+            }
+            Button {
+                text: "Deny";
+                clicked => { root.decide("deny"); }
+            }
+            Button {
+                text: "Reject";
+                clicked => { root.decide("reject"); }
+            }
+            Button {
+                text: "Allow";
+                primary: true;
+                clicked => { root.decide("allow"); }
+            }
+        }
+    }
+}
+
+export component RulesWindow inherits Window {
+    title: "snitchling — rules";
+    preferred-width: 1000px;
+    preferred-height: 640px;
+
+    in property <string> status;
+    in property <bool> connected;
+    in-out property <bool> interception;
+    in property <[RuleRow]> rules;
+    in-out property <string> filter;
+    in property <string> message;
+    in-out property <string> pending-delete;
+
+    in-out property <bool> editing;
+    in property <string> edit-name;
+    in property <bool> edit-is-list;
+    in property <string> edit-condition;
+    in property <[string]> actions;
+    in property <[string]> durations;
+    in property <[string]> op-types;
+    in property <[string]> operands;
+    in-out property <int> edit-action;
+    in-out property <int> edit-duration;
+    in-out property <int> edit-type;
+    in-out property <int> edit-operand;
+    in-out property <string> edit-data;
+
+    callback set-interception(bool);
+    callback set-enabled(string, bool);
+    callback delete(string);
+    callback edit(string);
+    callback filter-edited(string);
+    callback save-edit();
+
+    VerticalBox {
+        HorizontalBox {
+            padding: 0;
+            Value { text: root.status; }
+            Label { text: "Interception"; }
+            Switch {
+                checked <=> root.interception;
+                enabled: root.connected;
+                toggled => { root.set-interception(self.checked); }
+            }
+        }
+        LineEdit {
+            placeholder-text: "Filter by name, action or condition…";
+            text <=> root.filter;
+            edited(t) => { root.filter-edited(t); }
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            padding-left: 8px;
+            padding-right: 8px;
+            Label { text: "On"; width: 32px; }
+            Label { text: "Name"; width: 280px; }
+            Label { text: "Action"; width: 56px; }
+            Label { text: "Duration"; width: 96px; }
+            Label { text: "Condition"; horizontal-stretch: 1; }
+            Rectangle { width: 168px; }
+        }
+        ListView {
+            vertical-stretch: 1;
+            for r in root.rules: HorizontalLayout {
+                height: 36px;
+                spacing: 8px;
+                padding-left: 8px;
+                padding-right: 8px;
+                CheckBox {
+                    width: 32px;
+                    checked: r.enabled;
+                    toggled => { root.set-enabled(r.name, self.checked); }
+                }
+                Text {
+                    width: 280px;
+                    text: r.name;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+                Text {
+                    width: 56px;
+                    text: r.action;
+                    vertical-alignment: center;
+                    color: r.action == "allow" ? #2e9a44 : #d9433b;
+                }
+                Text {
+                    width: 96px;
+                    text: r.duration;
+                    vertical-alignment: center;
+                }
+                Value { text: r.condition; }
+                Button {
+                    width: 72px;
+                    text: "Edit";
+                    clicked => { root.edit(r.name); }
+                }
+                Button {
+                    width: 88px;
+                    text: root.pending-delete == r.name ? "Confirm" : "Delete";
+                    clicked => {
+                        if (root.pending-delete == r.name) {
+                            root.delete(r.name);
+                        } else {
+                            root.pending-delete = r.name;
+                        }
+                    }
+                }
+            }
+        }
+        if root.editing: Rectangle {
+            border-width: 1px;
+            border-color: #8888;
+            border-radius: 6px;
+            VerticalBox {
+                Text {
+                    text: "Edit " + root.edit-name;
+                    font-weight: 700;
+                    overflow: elide;
+                }
+                HorizontalBox {
+                    padding: 0;
+                    Label { text: "Action"; }
+                    ComboBox {
+                        model: root.actions;
+                        current-index <=> root.edit-action;
+                    }
+                    Label { text: "Duration"; }
+                    ComboBox {
+                        model: root.durations;
+                        current-index <=> root.edit-duration;
+                    }
+                    Rectangle { }
+                }
+                if root.edit-is-list: Text {
+                    text: "Condition: " + root.edit-condition + "  (multi-condition rules: only action and duration are editable here)";
+                    wrap: word-wrap;
+                }
+                if !root.edit-is-list: HorizontalBox {
+                    padding: 0;
+                    ComboBox {
+                        model: root.op-types;
+                        current-index <=> root.edit-type;
+                    }
+                    ComboBox {
+                        model: root.operands;
+                        current-index <=> root.edit-operand;
+                    }
+                    LineEdit {
+                        text <=> root.edit-data;
+                        horizontal-stretch: 1;
+                    }
+                }
+                HorizontalBox {
+                    padding: 0;
+                    Rectangle { }
+                    Button {
+                        text: "Cancel";
+                        clicked => { root.editing = false; }
+                    }
+                    Button {
+                        text: "Save";
+                        primary: true;
+                        clicked => { root.save-edit(); }
+                    }
+                }
+            }
+        }
+        Text {
+            text: root.message;
+            opacity: 0.8;
+        }
+    }
+}
