@@ -16,6 +16,37 @@ pub struct SnitchTray {
     connected: bool,
     interception: bool,
     status: String,
+    /// Where our own icons were written (empty if that failed).
+    icon_dir: String,
+}
+
+/// Full-colour icons that read on light and dark panels alike; theme icons are
+/// monochrome and get recoloured for the colour scheme, not the panel.
+const ICONS: [(&str, &str); 3] = [
+    ("protecting", include_str!("../assets/tray/snitchling-protecting.svg")),
+    ("disabled", include_str!("../assets/tray/snitchling-disabled.svg")),
+    ("disconnected", include_str!("../assets/tray/snitchling-disconnected.svg")),
+];
+
+/// Write the icons where the tray host can find them: directly in the directory and
+/// in a hicolor layout, since hosts differ in how they search IconThemePath.
+fn install_icons() -> std::io::Result<String> {
+    let data = std::env::var_os("XDG_DATA_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share")))
+        .ok_or_else(|| std::io::Error::other("no HOME"))?;
+    let dir = data.join("snitchling/icons");
+    let hicolor = dir.join("hicolor/scalable/apps");
+    std::fs::create_dir_all(&hicolor)?;
+    for (state, svg) in ICONS {
+        let file = format!("snitchling-{state}.svg");
+        for target in [dir.join(&file), hicolor.join(&file)] {
+            if std::fs::read_to_string(&target).ok().as_deref() != Some(svg) {
+                std::fs::write(target, svg)?;
+            }
+        }
+    }
+    Ok(dir.to_string_lossy().into_owned())
 }
 
 impl SnitchTray {
@@ -41,11 +72,15 @@ impl Tray for SnitchTray {
         "snitchling".into()
     }
 
+    fn icon_theme_path(&self) -> String {
+        self.icon_dir.clone()
+    }
+
     fn icon_name(&self) -> String {
         match (self.connected, self.interception) {
-            (true, true) => "security-high",
-            (true, false) => "security-low",
-            (false, _) => "security-medium",
+            (true, true) => "snitchling-protecting",
+            (true, false) => "snitchling-disabled",
+            (false, _) => "snitchling-disconnected",
         }
         .into()
     }
@@ -116,6 +151,10 @@ pub async fn run(hub: Arc<Hub>, rt: Handle) {
         connected: false,
         interception: false,
         status: String::new(),
+        icon_dir: install_icons().unwrap_or_else(|e| {
+            eprintln!("snitchling: could not write tray icons ({e})");
+            String::new()
+        }),
     };
     tray.apply(&hub.snapshot());
     let handle = match tray.spawn().await {
